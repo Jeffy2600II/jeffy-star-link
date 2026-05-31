@@ -120,6 +120,15 @@ export default function Home() {
     }
   };
 
+  // ฟังก์ชันที่หายไป ใส่กลับคืนให้แล้วครับ 🛠️
+  const copyToClipboard = () => {
+    if (selectedFiles.length === 0) return;
+    const textToCopy = selectedFiles.join('\n');
+    navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const buildFileTree = (fileList: GitHubFile[]): TreeNode => {
     const root: TreeNode = { name: 'root', path: '', type: 'folder', children: {} };
     
