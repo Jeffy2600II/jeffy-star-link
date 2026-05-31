@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, MouseEvent } from 'react';
 
 interface GitHubFile {
   path: string;
@@ -12,7 +12,6 @@ interface SavedProject {
   repo: string;
 }
 
-// Interface สำหรับโครงสร้าง Folder Tree
 interface TreeNode {
   name: string;
   path: string;
@@ -32,8 +31,6 @@ export default function Home() {
   
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [isFormOpen, setIsFormOpen] = useState<boolean>(true);
-  
-  // State สำหรับเก็บรายชื่อโฟลเดอร์ที่ถูกเปิดอยู่ (กางออก)
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
 
   useEffect(() => {
@@ -59,7 +56,7 @@ export default function Home() {
     setError('');
     setFiles([]);
     setSelectedFiles([]);
-    setExpandedFolders([]); // ล้างโฟลเดอร์ที่เคยกางไว้
+    setExpandedFolders([]);
     
     try {
       const res = await fetch(`/api/github?owner=${currentOwner}&repo=${currentRepo}`);
@@ -94,7 +91,7 @@ export default function Home() {
     }
   };
 
-  const deleteProject = (e: React.MouseEvent, indexToDelete: number) => {
+  const deleteProject = (e: MouseEvent, indexToDelete: number) => {
     e.stopPropagation();
     const updated = savedProjects.filter((_, i) => i !== indexToDelete);
     setSavedProjects(updated);
@@ -115,7 +112,6 @@ export default function Home() {
     }
   };
 
-  // ฟังก์ชันสลับการ กาง/หุบ โฟลเดอร์
   const toggleFolder = (folderPath: string) => {
     if (expandedFolders.includes(folderPath)) {
       setExpandedFolders(expandedFolders.filter(p => p !== folderPath));
@@ -124,7 +120,6 @@ export default function Home() {
     }
   };
 
-  //แปลงรายชื่อไฟล์ธรรมดา (Flat List) ให้กลายเป็นโครงสร้างต้นไม้ (Tree)
   const buildFileTree = (fileList: GitHubFile[]): TreeNode => {
     const root: TreeNode = { name: 'root', path: '', type: 'folder', children: {} };
     
@@ -153,9 +148,7 @@ export default function Home() {
     return root;
   };
 
-  // ฟังก์ชัน Component สำหรับวาดแต่ละชั้นของ Tree แบบ Recursive
   const RenderTree = ({ node, depth = 0 }: { node: TreeNode; depth: number }) => {
-    // เรียงให้โฟลเดอร์ขึ้นก่อนไฟล์ เพื่อความสวยงามและหาโค้ดง่าย
     const sortedKeys = Object.keys(node.children).sort((a, b) => {
       const typeA = node.children[a].type;
       const typeB = node.children[b].type;
@@ -174,7 +167,6 @@ export default function Home() {
           return (
             <div key={item.path} style={{ paddingLeft: `${depth * 12}px` }} className="w-full">
               {isFolder ? (
-                // แถวโฟลเดอร์
                 <div 
                   onClick={() => toggleFolder(item.path)}
                   className="flex items-center gap-2 p-2.5 hover:bg-gray-750 active:bg-gray-700 text-gray-300 font-medium text-xs cursor-pointer select-none border-l-2 border-gray-700/50"
@@ -186,7 +178,6 @@ export default function Home() {
                   <span className="truncate">{item.name}</span>
                 </div>
               ) : (
-                // แถวไฟล์
                 <div 
                   onClick={() => item.url && toggleSelect(item.url)}
                   className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors active:bg-gray-750 ${isFileSelected ? 'bg-emerald-950/30 text-emerald-300 border-l-2 border-emerald-500' : 'hover:bg-gray-750 text-gray-300 border-l-2 border-transparent'}`}
@@ -202,10 +193,9 @@ export default function Home() {
                 </div>
               )}
 
-              {/* ถ้าเป็นโฟลเดอร์และถูกสั่งให้เปิดอยู่ ให้เรนเดอร์ลูก ๆ ของมันต่อ */}
               {isFolder && isExpanded && (
                 <div className="w-full border-l border-gray-800/60 ml-3.5">
-                  <RenderTree node={item} depth={0} /> {/* รีเซ็ต depth เป็น 0 เพราะใช้ paddingLeft แตกแขนงด้วย margin-left คลุมแทน */}
+                  <RenderTree node={item} depth={0} />
                 </div>
               )}
             </div>
@@ -305,7 +295,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* ส่วนแสดง Folder Tree โครงสร้างชัดเจนเหมือนในคอมพิวเตอร์ */}
         {files.length > 0 && (
           <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col max-h-[72vh]">
             <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 sticky top-0 rounded-t-xl z-10">
@@ -318,16 +307,14 @@ export default function Home() {
               </button>
             </div>
 
-            {/* แผงโครงสร้างต้นไม้ที่เลื่อนหน้าจอได้ลื่นๆ */}
             <div className="overflow-y-auto flex-1 p-2 bg-gray-900/40">
               <RenderTree node={fileTree} depth={0} />
             </div>
           </div>
         )}
 
-        {/* แถบล่างสำหรับกดคัดลอกเมื่อมีไฟล์ถูกเลือก */}
         {selectedFiles.length > 0 && (
-          <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-2xl flex items-center justify-between gap-4 z-50 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-2xl flex items-center justify-between gap-4 z-50">
             <div className="text-sm">
               <span className="font-semibold text-emerald-400">{selectedFiles.length}</span> ไฟล์ถูกเลือก
             </div>
