@@ -12,6 +12,15 @@ interface SavedProject {
   repo: string;
 }
 
+// Interface สำหรับโครงสร้าง Folder Tree
+interface TreeNode {
+  name: string;
+  path: string;
+  type: 'folder' | 'file';
+  url?: string;
+  children: { [key: string]: TreeNode };
+}
+
 export default function Home() {
   const [owner, setOwner] = useState<string>('');
   const [repo, setRepo] = useState<string>('');
@@ -21,21 +30,20 @@ export default function Home() {
   const [error, setError] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   
-  // State ใหม่สำหรับระบบบันทึกและพับฟอร์ม
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState<boolean>(true); // เปิดไว้ตอนแรกเพื่อให้กรอก
+  const [isFormOpen, setIsFormOpen] = useState<boolean>(true);
+  
+  // State สำหรับเก็บรายชื่อโฟลเดอร์ที่ถูกเปิดอยู่ (กางออก)
+  const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
 
-  // ดึงข้อมูลโปรเจกต์ที่เคยเซฟไว้ใน Browser ออกมาตอนเปิดเว็บ
   useEffect(() => {
     const localData = localStorage.getItem('gv_saved_projects');
     if (localData) {
       try {
         const parsed = JSON.parse(localData);
         setSavedProjects(parsed);
-        // ถ้ามีโปรเจกต์เก่าอยู่แล้ว ให้พับฟอร์มลงเพื่อประหยัดพื้นที่ทันที
         if (parsed.length > 0) {
           setIsFormOpen(false);
-          // เอาโปรเจกต์ล่าสุดมาใส่ในฟิลด์รอไว้ก่อน
           setOwner(parsed[0].owner);
           setRepo(parsed[0].repo);
         }
@@ -45,13 +53,13 @@ export default function Home() {
     }
   }, []);
 
-  // ฟังก์ชันดึงรายชื่อไฟล์
   const fetchFiles = async (currentOwner = owner, currentRepo = repo) => {
     if (!currentOwner || !currentRepo) return;
     setLoading(true);
     setError('');
     setFiles([]);
     setSelectedFiles([]);
+    setExpandedFolders([]); // ล้างโฟลเดอร์ที่เคยกางไว้
     
     try {
       const res = await fetch(`/api/github?owner=${currentOwner}&repo=${currentRepo}`);
@@ -60,9 +68,7 @@ export default function Home() {
         setError(data.error);
       } else {
         setFiles(data.files);
-        // พับฟอร์มเก็บทันทีเมื่อดึงไฟล์สำเร็จ หน้าจอจะได้โล่ง ๆ
         setIsFormOpen(false);
-        // บันทึกโปรเจกต์นี้ลง localStorage
         saveProject(currentOwner, currentRepo);
       }
     } catch (err) {
@@ -77,12 +83,10 @@ export default function Home() {
     fetchFiles(owner, repo);
   };
 
-  // ฟังก์ชันบันทึกโปรเจกต์ลง LocalStorage (ไม่ให้ซ้ำเดิม)
   const saveProject = (newOwner: string, newRepo: string) => {
     const isExist = savedProjects.some(
       (p) => p.owner.toLowerCase() === newOwner.toLowerCase() && p.repo.toLowerCase() === newRepo.toLowerCase()
     );
-    
     if (!isExist) {
       const updated = [{ owner: newOwner, repo: newRepo }, ...savedProjects];
       setSavedProjects(updated);
@@ -90,15 +94,13 @@ export default function Home() {
     }
   };
 
-  // ฟังก์ชันลบโปรเจกต์ที่บันทึกไว้
   const deleteProject = (e: React.MouseEvent, indexToDelete: number) => {
-    e.stopPropagation(); // ไม่ให้ไปกดเลือกโปรเจกต์ซ้ำ
+    e.stopPropagation();
     const updated = savedProjects.filter((_, i) => i !== indexToDelete);
     setSavedProjects(updated);
     localStorage.setItem('gv_saved_projects', JSON.stringify(updated));
   };
 
-  // ฟังก์ชันเมื่อกดเลือกโปรเจกต์เก่าจากลิสต์
   const handleSelectSaved = (proj: SavedProject) => {
     setOwner(proj.owner);
     setRepo(proj.repo);
@@ -113,52 +115,134 @@ export default function Home() {
     }
   };
 
-  const toggleSelectAll = () => {
-    if (selectedFiles.length === files.length) {
-      setSelectedFiles([]);
+  // ฟังก์ชันสลับการ กาง/หุบ โฟลเดอร์
+  const toggleFolder = (folderPath: string) => {
+    if (expandedFolders.includes(folderPath)) {
+      setExpandedFolders(expandedFolders.filter(p => p !== folderPath));
     } else {
-      setSelectedFiles(files.map(f => f.url));
+      setExpandedFolders([...expandedFolders, folderPath]);
     }
   };
 
-  const copyToClipboard = () => {
-    if (selectedFiles.length === 0) return;
-    const textToCopy = selectedFiles.join('\n');
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  //แปลงรายชื่อไฟล์ธรรมดา (Flat List) ให้กลายเป็นโครงสร้างต้นไม้ (Tree)
+  const buildFileTree = (fileList: GitHubFile[]): TreeNode => {
+    const root: TreeNode = { name: 'root', path: '', type: 'folder', children: {} };
+    
+    fileList.forEach(file => {
+      const parts = file.path.split('/');
+      let current = root;
+      let currentPath = '';
+
+      parts.forEach((part, index) => {
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        const isLast = index === parts.length - 1;
+
+        if (!current.children[part]) {
+          current.children[part] = {
+            name: part,
+            path: currentPath,
+            type: isLast ? 'file' : 'folder',
+            url: isLast ? file.url : undefined,
+            children: {}
+          };
+        }
+        current = current.children[part];
+      });
+    });
+
+    return root;
   };
+
+  // ฟังก์ชัน Component สำหรับวาดแต่ละชั้นของ Tree แบบ Recursive
+  const RenderTree = ({ node, depth = 0 }: { node: TreeNode; depth: number }) => {
+    // เรียงให้โฟลเดอร์ขึ้นก่อนไฟล์ เพื่อความสวยงามและหาโค้ดง่าย
+    const sortedKeys = Object.keys(node.children).sort((a, b) => {
+      const typeA = node.children[a].type;
+      const typeB = node.children[b].type;
+      if (typeA === typeB) return a.localeCompare(b);
+      return typeA === 'folder' ? -1 : 1;
+    });
+
+    return (
+      <div className="w-full">
+        {sortedKeys.map(key => {
+          const item = node.children[key];
+          const isFolder = item.type === 'folder';
+          const isExpanded = expandedFolders.includes(item.path);
+          const isFileSelected = item.url ? selectedFiles.includes(item.url) : false;
+
+          return (
+            <div key={item.path} style={{ paddingLeft: `${depth * 12}px` }} className="w-full">
+              {isFolder ? (
+                // แถวโฟลเดอร์
+                <div 
+                  onClick={() => toggleFolder(item.path)}
+                  className="flex items-center gap-2 p-2.5 hover:bg-gray-750 active:bg-gray-700 text-gray-300 font-medium text-xs cursor-pointer select-none border-l-2 border-gray-700/50"
+                >
+                  <span className="text-gray-500 text-[10px] transform transition-transform duration-150 inline-block w-3 text-center">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                  <span className="text-base">📁</span>
+                  <span className="truncate">{item.name}</span>
+                </div>
+              ) : (
+                // แถวไฟล์
+                <div 
+                  onClick={() => item.url && toggleSelect(item.url)}
+                  className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors active:bg-gray-750 ${isFileSelected ? 'bg-emerald-950/30 text-emerald-300 border-l-2 border-emerald-500' : 'hover:bg-gray-750 text-gray-300 border-l-2 border-transparent'}`}
+                >
+                  <input 
+                    type="checkbox" 
+                    checked={isFileSelected}
+                    onChange={() => {}}
+                    className="w-3.5 h-3.5 rounded text-emerald-600 bg-gray-900 border-gray-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">📄</span>
+                  <span className="text-xs font-mono truncate">{item.name}</span>
+                </div>
+              )}
+
+              {/* ถ้าเป็นโฟลเดอร์และถูกสั่งให้เปิดอยู่ ให้เรนเดอร์ลูก ๆ ของมันต่อ */}
+              {isFolder && isExpanded && (
+                <div className="w-full border-l border-gray-800/60 ml-3.5">
+                  <RenderTree node={item} depth={0} /> {/* รีเซ็ต depth เป็น 0 เพราะใช้ paddingLeft แตกแขนงด้วย margin-left คลุมแทน */}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const fileTree = buildFileTree(files);
 
   return (
     <main className="min-h-screen bg-gray-900 text-gray-100 p-4 font-sans selection:bg-emerald-500 selection:text-white pb-28">
       <div className="max-w-md mx-auto space-y-4">
         
-        {/* Header สั้นกระชับ */}
         <header className="flex justify-between items-center py-2 border-b border-gray-800">
           <div>
             <h1 className="text-xl font-bold text-emerald-400">Git Linker</h1>
             {files.length > 0 && (
               <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">
-                กำลังดู: {owner}/{repo}
+                คลัง: {owner}/{repo}
               </p>
             )}
           </div>
-          {/* ปุ่มเปิด-ปิด ฟิลด์กรอกข้อมูล */}
           <button 
             onClick={() => setIsFormOpen(!isFormOpen)}
             className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${isFormOpen ? 'bg-gray-800 border-gray-600 text-gray-300' : 'bg-emerald-950/50 border-emerald-500/50 text-emerald-400'}`}
           >
-            {isFormOpen ? '✕ ปิดตัวกรอก' : '＋ สลับโปรเจกต์'}
+            {isFormOpen ? '✕ ปิด' : '＋ สลับโปรเจกต์'}
           </button>
         </header>
 
-        {/* ฟิลด์กรอกข้อมูลแบบพับเก็บได้ (จะไม่มาเบียดหน้าจอเมื่อไม่ได้ใช้) */}
         {isFormOpen && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* รายชื่อโปรเจกต์เก่าที่เซฟไว้ */}
             {savedProjects.length > 0 && (
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">โปรเจกต์ล่าสุดของคุณ</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">โปรเจกต์ล่าสุด</label>
                 <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1">
                   {savedProjects.map((proj, idx) => (
                     <div 
@@ -169,7 +253,7 @@ export default function Home() {
                       <span className="truncate max-w-[120px]">{proj.owner}/{proj.repo}</span>
                       <button 
                         onClick={(e) => deleteProject(e, idx)}
-                        className="text-gray-500 hover:text-red-400 font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-700"
+                        className="text-gray-500 hover:text-red-400 font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded-full"
                       >
                         ✕
                       </button>
@@ -179,7 +263,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* ฟอร์มกรอกใหม่ */}
             <form onSubmit={handleSubmit} className="bg-gray-800 p-4 rounded-xl shadow-lg space-y-3 border border-gray-700">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -194,7 +277,7 @@ export default function Home() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold tracking-wider text-gray-400 mb-1">Repository Name</label>
+                  <label className="block text-[11px] font-semibold tracking-wider text-gray-400 mb-1">Repository</label>
                   <input 
                     type="text" 
                     placeholder="เช่น fantrove-page" 
@@ -210,7 +293,7 @@ export default function Home() {
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 text-white font-semibold p-2.5 rounded-lg text-xs transition-colors"
               >
-                {loading ? 'กำลังโหลด...' : 'ดึงและบันทึกไฟล์'}
+                {loading ? 'กำลังดึงโครงสร้าง...' : 'ดึงและบันทึกไฟล์'}
               </button>
             </form>
           </div>
@@ -222,43 +305,22 @@ export default function Home() {
           </div>
         )}
 
-        {/* รายการไฟล์ (ตอนนี้จะแสดงผลได้เต็มที่ ไม่โดนฟิลด์ด้านบนเบียดบังแล้ว) */}
+        {/* ส่วนแสดง Folder Tree โครงสร้างชัดเจนเหมือนในคอมพิวเตอร์ */}
         {files.length > 0 && (
-          <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col max-h-[70vh]">
-            <div className="p-3.5 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 sticky top-0 rounded-t-xl">
-              <span className="text-xs text-gray-400 font-medium">พบทั้งหมด {files.length} ไฟล์</span>
+          <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col max-h-[72vh]">
+            <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 sticky top-0 rounded-t-xl z-10">
+              <span className="text-xs text-gray-400 font-medium">โครงสร้างไฟล์ ({files.length})</span>
               <button 
-                onClick={toggleSelectAll}
-                className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold px-2 py-1 rounded"
+                onClick={() => setSelectedFiles([])}
+                className="text-xs text-gray-400 hover:text-red-400 font-semibold px-2 py-1 rounded"
               >
-                {selectedFiles.length === files.length ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}
+                ล้างที่เลือกทั้งหมด
               </button>
             </div>
 
-            <div className="divide-y divide-gray-700 overflow-y-auto flex-1">
-              {files.map((file) => {
-                const isSelected = selectedFiles.includes(file.url);
-                return (
-                  <div 
-                    key={file.url} 
-                    onClick={() => toggleSelect(file.url)}
-                    className={`flex items-start gap-3 p-3.5 cursor-pointer transition-colors active:bg-gray-750 ${isSelected ? 'bg-emerald-950/30' : 'hover:bg-gray-750'}`}
-                  >
-                    <div className="mt-0.5">
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded text-emerald-600 bg-gray-900 border-gray-600 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-200 break-all">{file.name}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{file.path}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* แผงโครงสร้างต้นไม้ที่เลื่อนหน้าจอได้ลื่นๆ */}
+            <div className="overflow-y-auto flex-1 p-2 bg-gray-900/40">
+              <RenderTree node={fileTree} depth={0} />
             </div>
           </div>
         )}
@@ -273,7 +335,7 @@ export default function Home() {
               onClick={copyToClipboard}
               className={`flex-1 font-semibold p-3 rounded-lg text-sm text-center transition-all active:scale-[0.98] ${copied ? 'bg-gray-700 text-emerald-400' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
             >
-              {copied ? '✓ คัดลอกแล้ว!' : 'คัดลอกรายชื่อลิงก์'}
+              {copied ? '✓ คัดลอกสำเร็จ!' : 'คัดลอกรายชื่อลิงก์'}
             </button>
           </div>
         )}
