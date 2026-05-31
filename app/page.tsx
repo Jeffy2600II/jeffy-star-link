@@ -120,7 +120,6 @@ export default function Home() {
     }
   };
 
-  // ฟังก์ชันที่หายไป ใส่กลับคืนให้แล้วครับ 🛠️
   const copyToClipboard = () => {
     if (selectedFiles.length === 0) return;
     const textToCopy = selectedFiles.join('\n');
@@ -166,7 +165,7 @@ export default function Home() {
     });
 
     return (
-      <div className="w-full">
+      <div className="w-full space-y-1">
         {sortedKeys.map(key => {
           const item = node.children[key];
           const isFolder = item.type === 'folder';
@@ -174,36 +173,40 @@ export default function Home() {
           const isFileSelected = item.url ? selectedFiles.includes(item.url) : false;
 
           return (
-            <div key={item.path} style={{ paddingLeft: `${depth * 12}px` }} className="w-full">
+            <div key={item.path} style={{ paddingLeft: `${depth * 8}px` }} className="w-full">
               {isFolder ? (
+                // โฟลเดอร์ดีไซน์ใหม่: ใหญ่ขึ้น คลีนขึ้น หลวมขึ้น
                 <div 
                   onClick={() => toggleFolder(item.path)}
-                  className="flex items-center gap-2 p-2.5 hover:bg-gray-750 active:bg-gray-700 text-gray-300 font-medium text-xs cursor-pointer select-none border-l-2 border-gray-700/50"
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-gray-800/60 active:bg-gray-800 text-gray-200 font-medium text-sm cursor-pointer select-none transition-all ${isExpanded ? 'bg-gray-800/30' : ''}`}
                 >
-                  <span className="text-gray-500 text-[10px] transform transition-transform duration-150 inline-block w-3 text-center">
-                    {isExpanded ? '▼' : '▶'}
+                  <span className="text-gray-500 text-xs transition-transform duration-200 inline-block w-4 text-center">
+                    {isExpanded ? '⊙' : '⊕'}
                   </span>
-                  <span className="text-base">📁</span>
-                  <span className="truncate">{item.name}</span>
+                  <span className="text-lg">📁</span>
+                  <span className="truncate tracking-wide">{item.name}</span>
                 </div>
               ) : (
+                // ไฟล์ดีไซน์ใหม่: ใหญ่ขึ้น จิ้มง่าย สีสันชัดเจน
                 <div 
                   onClick={() => item.url && toggleSelect(item.url)}
-                  className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors active:bg-gray-750 ${isFileSelected ? 'bg-emerald-950/30 text-emerald-300 border-l-2 border-emerald-500' : 'hover:bg-gray-750 text-gray-300 border-l-2 border-transparent'}`}
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all active:scale-[0.99] ${isFileSelected ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'hover:bg-gray-800/40 text-gray-300 border border-transparent'}`}
                 >
-                  <input 
-                    type="checkbox" 
-                    checked={isFileSelected}
-                    onChange={() => {}}
-                    className="w-3.5 h-3.5 rounded text-emerald-600 bg-gray-900 border-gray-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-sm">📄</span>
-                  <span className="text-xs font-mono truncate">{item.name}</span>
+                  <div className="flex items-center justify-center">
+                    <input 
+                      type="checkbox" 
+                      checked={isFileSelected}
+                      onChange={() => {}}
+                      className="w-4 h-4 rounded-md text-emerald-600 bg-gray-950 border-gray-700 focus:ring-emerald-500 focus:ring-offset-gray-900 transition-all"
+                    />
+                  </div>
+                  <span className="text-lg">📄</span>
+                  <span className="text-sm font-mono truncate tracking-wide">{item.name}</span>
                 </div>
               )}
 
               {isFolder && isExpanded && (
-                <div className="w-full border-l border-gray-800/60 ml-3.5">
+                <div className="w-full border-l border-gray-800/80 ml-6 my-1 pl-1">
                   <RenderTree node={item} depth={0} />
                 </div>
               )}
@@ -217,42 +220,43 @@ export default function Home() {
   const fileTree = buildFileTree(files);
 
   return (
-    <main className="min-h-screen bg-gray-900 text-gray-100 p-4 font-sans selection:bg-emerald-500 selection:text-white pb-28">
-      <div className="max-w-md mx-auto space-y-4">
+    <main className="min-h-screen bg-[#0b0f17] text-gray-100 p-5 font-sans selection:bg-emerald-500 selection:text-white pb-32">
+      <div className="max-w-md mx-auto space-y-6">
         
-        <header className="flex justify-between items-center py-2 border-b border-gray-800">
+        {/* Header สวยเฉียบสไตล์โมเดิร์น */}
+        <header className="flex justify-between items-center py-4 border-b border-gray-800/60">
           <div>
-            <h1 className="text-xl font-bold text-emerald-400">Git Linker</h1>
+            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Git Linker</h1>
             {files.length > 0 && (
-              <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">
-                คลัง: {owner}/{repo}
+              <p className="text-xs font-medium text-gray-400 mt-1 truncate max-w-[200px]">
+                Repository: <span className="text-gray-300 font-mono">{repo}</span>
               </p>
             )}
           </div>
           <button 
             onClick={() => setIsFormOpen(!isFormOpen)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${isFormOpen ? 'bg-gray-800 border-gray-600 text-gray-300' : 'bg-emerald-950/50 border-emerald-500/50 text-emerald-400'}`}
+            className={`text-xs font-bold tracking-wide uppercase px-4 py-2.5 rounded-xl border transition-all active:scale-95 ${isFormOpen ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-lg shadow-emerald-500/5'}`}
           >
-            {isFormOpen ? '✕ ปิด' : '＋ สลับโปรเจกต์'}
+            {isFormOpen ? '✕ ปิดแผง' : '⚡ สลับคลัง'}
           </button>
         </header>
 
         {isFormOpen && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
             {savedProjects.length > 0 && (
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">โปรเจกต์ล่าสุด</label>
-                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-widest text-gray-500">คลังที่บันทึกไว้</label>
+                <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto p-1">
                   {savedProjects.map((proj, idx) => (
                     <div 
                       key={idx}
                       onClick={() => handleSelectSaved(proj)}
-                      className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-full pl-3 pr-2 py-1 text-xs cursor-pointer text-gray-200 transition-colors"
+                      className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl pl-4 pr-2.5 py-2 text-xs font-medium cursor-pointer text-gray-300 transition-all active:scale-95"
                     >
-                      <span className="truncate max-w-[120px]">{proj.owner}/{proj.repo}</span>
+                      <span className="truncate max-w-[140px] font-mono">{proj.owner}/{proj.repo}</span>
                       <button 
                         onClick={(e) => deleteProject(e, idx)}
-                        className="text-gray-500 hover:text-red-400 font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded-full"
+                        className="text-gray-500 hover:text-red-400 font-bold text-sm w-5 h-5 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors"
                       >
                         ✕
                       </button>
@@ -262,27 +266,28 @@ export default function Home() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="bg-gray-800 p-4 rounded-xl shadow-lg space-y-3 border border-gray-700">
-              <div className="grid grid-cols-2 gap-3">
+            {/* ฟอร์มกรอกข้อมูลดีไซน์โมเดิร์น: ใหญ่ เต็มตา */}
+            <form onSubmit={handleSubmit} className="bg-gray-900/50 p-5 rounded-2xl shadow-xl space-y-4 border border-gray-800/80 backdrop-blur-sm">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-semibold tracking-wider text-gray-400 mb-1">GitHub Owner</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">GitHub Owner</label>
                   <input 
                     type="text" 
                     placeholder="เช่น fantrove" 
                     value={owner}
                     onChange={(e) => setOwner(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-xs focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3.5 text-sm font-medium focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-gray-600"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold tracking-wider text-gray-400 mb-1">Repository</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Repository Name</label>
                   <input 
                     type="text" 
                     placeholder="เช่น fantrove-page" 
                     value={repo}
                     onChange={(e) => setRepo(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-xs focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3.5 text-sm font-medium focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder:text-gray-600"
                     required
                   />
                 </div>
@@ -290,48 +295,50 @@ export default function Home() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 text-white font-semibold p-2.5 rounded-lg text-xs transition-colors"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 text-white font-bold py-3.5 rounded-xl text-sm tracking-wide shadow-lg shadow-emerald-600/10 transition-all active:scale-[0.98]"
               >
-                {loading ? 'กำลังดึงโครงสร้าง...' : 'ดึงและบันทึกไฟล์'}
+                {loading ? 'กำลังดึงโครงสร้าง...' : 'เชื่อมต่อคลังไฟล์'}
               </button>
             </form>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-900/50 border border-red-500 text-red-200 p-3 rounded-lg text-xs text-center">
+          <div className="bg-red-950/40 border border-red-500/30 text-red-200 p-4 rounded-xl text-xs font-medium text-center">
             {error}
           </div>
         )}
 
+        {/* แผงแสดงผล Folder Tree แบบมี Space สวยงาม */}
         {files.length > 0 && (
-          <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col max-h-[72vh]">
-            <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 sticky top-0 rounded-t-xl z-10">
-              <span className="text-xs text-gray-400 font-medium">โครงสร้างไฟล์ ({files.length})</span>
+          <div className="bg-gray-900/30 rounded-2xl shadow-xl border border-gray-800/60 flex flex-col max-h-[68vh] overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800/60 flex justify-between items-center bg-gray-900/80 sticky top-0 rounded-t-2xl z-10 backdrop-blur-md">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">โครงสร้างโปรเจกต์ ({files.length})</span>
               <button 
                 onClick={() => setSelectedFiles([])}
-                className="text-xs text-gray-400 hover:text-red-400 font-semibold px-2 py-1 rounded"
+                className="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-2 py-1"
               >
-                ล้างที่เลือกทั้งหมด
+                ล้างทั้งหมด
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1 p-2 bg-gray-900/40">
+            <div className="overflow-y-auto flex-1 p-3 space-y-1">
               <RenderTree node={fileTree} depth={0} />
             </div>
           </div>
         )}
 
+        {/* แถบแจ้งเตือนด้านล่าง ดีไซน์กระจกใส (Glassmorphism) สวยลอยเด่น */}
         {selectedFiles.length > 0 && (
-          <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-2xl flex items-center justify-between gap-4 z-50">
-            <div className="text-sm">
-              <span className="font-semibold text-emerald-400">{selectedFiles.length}</span> ไฟล์ถูกเลือก
+          <div className="fixed bottom-6 left-5 right-5 max-w-md mx-auto bg-gray-900/80 border border-gray-700/50 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-5 z-50 backdrop-blur-lg animate-in slide-in-from-bottom-6 duration-300">
+            <div className="text-sm font-medium pl-1">
+              เลือกไว้ <span className="font-black text-emerald-400 text-base">{selectedFiles.length}</span> ไฟล์
             </div>
             <button
               onClick={copyToClipboard}
-              className={`flex-1 font-semibold p-3 rounded-lg text-sm text-center transition-all active:scale-[0.98] ${copied ? 'bg-gray-700 text-emerald-400' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
+              className={`flex-1 font-bold py-3.5 px-4 rounded-xl text-sm text-center tracking-wide transition-all active:scale-[0.97] shadow-lg ${copied ? 'bg-gray-800 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/10'}`}
             >
-              {copied ? '✓ คัดลอกสำเร็จ!' : 'คัดลอกรายชื่อลิงก์'}
+              {copied ? '✓ คัดลอกลิงก์แล้ว!' : 'คัดลอกลิสต์ลิงก์'}
             </button>
           </div>
         )}
