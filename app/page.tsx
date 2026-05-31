@@ -8,14 +8,14 @@ interface GitHubFile {
 }
 
 export default function Home() {
-  const [owner, setOwner] = useState < string > ('');
-  const [repo, setRepo] = useState < string > ('');
-  const [files, setFiles] = useState < GitHubFile[] > ([]);
-  const [selectedFiles, setSelectedFiles] = useState < string[] > ([]);
-  const [loading, setLoading] = useState < boolean > (false);
-  const [error, setError] = useState < string > ('');
-  const [copied, setCopied] = useState < boolean > (false);
-  
+  const [owner, setOwner] = useState<string>('');
+  const [repo, setRepo] = useState<string>('');
+  const [files, setFiles] = useState<GitHubFile[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [copied, setCopied] = useState<boolean>(false);
+
   const fetchFiles = async (e: FormEvent) => {
     e.preventDefault();
     if (!owner || !repo) return;
@@ -34,12 +34,11 @@ export default function Home() {
       }
     } catch (err) {
       setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-    }
-    finaly {
+    } finally {
       setLoading(false);
     }
   };
-  
+
   const toggleSelect = (url: string) => {
     if (selectedFiles.includes(url)) {
       setSelectedFiles(selectedFiles.filter(item => item !== url));
@@ -47,7 +46,7 @@ export default function Home() {
       setSelectedFiles([...selectedFiles, url]);
     }
   };
-  
+
   const toggleSelectAll = () => {
     if (selectedFiles.length === files.length) {
       setSelectedFiles([]);
@@ -55,7 +54,7 @@ export default function Home() {
       setSelectedFiles(files.map(f => f.url));
     }
   };
-  
+
   const copyToClipboard = () => {
     if (selectedFiles.length === 0) return;
     const textToCopy = selectedFiles.join('\n');
@@ -63,7 +62,7 @@ export default function Home() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  
+
   return (
     <main className="min-h-screen bg-gray-900 text-gray-100 p-4 font-sans selection:bg-emerald-500 selection:text-white">
       <div className="max-w-md mx-auto space-y-6">
